@@ -166,7 +166,7 @@ func separateLog() {
 	time.Sleep(time.Duration(tomorrow.Unix()-now.Unix()) * time.Second)
 
 	file.Close()
-	date := fmt.Sprintf("%d%02d%02d.log", now.Year(), now.Month(), now.Day())
+	date := fmt.Sprintf("%d-%02d-%02d.log", now.Year(), now.Month(), now.Day())
 	err := os.Rename(folderpath+filename, folderpath+date)
 	if err == nil {
 		fmt.Println(err.Error())
