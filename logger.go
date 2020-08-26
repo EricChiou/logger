@@ -11,6 +11,12 @@ import (
 
 type outputType int
 
+const (
+	NotPrint  outputType = 0 // not to print to console
+	OnlyPrint outputType = 1 // only print to console
+	WriteLog  outputType = 2 // print to console and write to log file
+)
+
 var (
 	Trace *log.Logger
 	Info  *log.Logger
@@ -20,12 +26,6 @@ var (
 	SeparateLogByDay bool = true
 )
 
-const (
-	NotPrint  outputType = 0 // not to print to console
-	OnlyPrint outputType = 1 // only print to console
-	WriteLog  outputType = 2 // print to console and write to log file
-)
-
 type logSetting struct {
 	opType outputType
 	prefix string
@@ -33,9 +33,10 @@ type logSetting struct {
 }
 
 var (
-	file       *os.File
-	folderpath string
-	filename   string = "now.log"
+	file               *os.File
+	path               string
+	filename           string = "now.log"
+	separateLogByDayOn bool   = false
 
 	trace logSetting = logSetting{
 		opType: NotPrint,
@@ -59,25 +60,30 @@ var (
 	}
 )
 
-// Init logger
+// Init log file folder path
 func Init(folderPath string) error {
-	if folderPath[len(folderPath)-1:] != "/" {
+	if len(folderPath) == 0 || folderPath[len(folderPath)-1:] != "/" {
 		folderPath = folderPath + "/"
 	}
-	folderpath = folderPath
 
-	err := setFolder(folderpath)
+	err := setFolder(folderPath)
 	if err != nil {
 		return err
 	}
 
-	file, err = openFile()
+	file, err = openFile(folderPath)
 	if err != nil {
 		return err
 	}
+
+	path = folderPath
 
 	setLogSetting()
-	go separateLog()
+
+	if !separateLogByDayOn {
+		go separateLog()
+		separateLogByDayOn = true
+	}
 
 	return nil
 }
@@ -122,8 +128,8 @@ func SetErrorFlags(typ outputType, prefix string, flags int) {
 	Error = setFlags(err)
 }
 
-func openFile() (*os.File, error) {
-	return os.OpenFile(folderpath+filename, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+func openFile(folderPath string) (*os.File, error) {
+	return os.OpenFile(folderPath+filename, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 }
 
 func setFolder(path string) error {
@@ -165,17 +171,19 @@ func separateLog() {
 
 	time.Sleep(time.Duration(tomorrow.Unix()-now.Unix()) * time.Second)
 
-	file.Close()
-	date := fmt.Sprintf("%d-%02d-%02d.log", now.Year(), now.Month(), now.Day())
-	err := os.Rename(folderpath+filename, folderpath+date)
-	if err == nil {
-		fmt.Println(err.Error())
-		file, err = openFile()
-		if err != nil {
+	if SeparateLogByDay {
+		file.Close()
+		date := fmt.Sprintf("%d-%02d-%02d.log", now.Year(), now.Month(), now.Day())
+		err := os.Rename(path+filename, path+date)
+		if err == nil {
+			fmt.Println(err.Error())
+			file, err = openFile(path)
+			if err != nil {
+				fmt.Println(err.Error())
+			}
+		} else {
 			fmt.Println(err.Error())
 		}
-	} else {
-		fmt.Println(err.Error())
 	}
 
 	separateLog()
